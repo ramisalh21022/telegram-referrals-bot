@@ -2,19 +2,30 @@ require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
+const express = require("express");
+const bodyParser = require("body-parser");
 
-// إعداد البوت
-const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
+// إنشاء البوت بدون polling
+const bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
 
 // إعداد Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// /start command
+// Express app
+const app = express();
+app.use(bodyParser.json());
+
+// Endpoint للـ Webhook
+app.post(`/webhook/${process.env.TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// أوامر البوت
 bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   const referralParam = match[1]; // مثل ref_xxx
 
-  // تحقق إن كان المستخدم موجود
   let { data: existingUser, error } = await supabase
     .from('users_telegram')
     .select('*')
@@ -25,7 +36,6 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
   if (!existingUser || existingUser.length === 0) {
     let referrerId = null;
 
-    // إذا دخل عبر رابط إحالة
     if (referralParam && referralParam.startsWith('ref_')) {
       const code = referralParam.split('_')[1];
       const { data: refUser, error: refError } = await supabase
@@ -36,10 +46,8 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
       if (refUser && refUser.length > 0) referrerId = refUser[0].id;
     }
 
-    // إنشاء كود إحالة جديد
     const myCode = crypto.randomBytes(4).toString('hex');
 
-    // إدخال المستخدم الجديد
     const { data: newUser, error: insertError } = await supabase
       .from('users_telegram')
       .insert({
@@ -52,7 +60,6 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 
     if (insertError) return console.error(insertError);
 
-    // إرسال رابط الإحالة
     bot.sendMessage(
       chatId,
       `🎉 مرحبًا ${msg.from.first_name || ''}!\n\n` +
@@ -64,7 +71,6 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
   }
 });
 
-// /my_referrals command
 bot.onText(/\/my_referrals/, async (msg) => {
   const chatId = msg.chat.id;
 
@@ -93,4 +99,10 @@ bot.onText(/\/my_referrals/, async (msg) => {
   });
 
   bot.sendMessage(chatId, text);
+});
+
+// تشغيل السيرفر
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
