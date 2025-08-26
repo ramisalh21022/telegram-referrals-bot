@@ -93,42 +93,52 @@ bot.onText(/\/my_referrals/, async (msg) => {
 
   if (!referrals || referrals.length === 0) return bot.sendMessage(chatId, "📭 لا يوجد أي إحالات حتى الآن.");
 
- let text = `📊 إحالاتك (${level1.length}):\n\n`;
+// إنشاء أزرار Inline لكل إحالة
+  const buttons = referrals.map(r => {
+    const name = r.username || r.telegram_id;
+    return [{
+      text: name,
+      callback_data: `referral_${r.id}` // استخدام عمود id من الجدول
+    }];
+  });
 
-  for (const l1 of level1) {
-    const l1Name = l1.username || l1.telegram_id;
-    text += `🟢 ${l1Name}`; // رمز للمستوى الأول
-
-    const { data: level2 } = await supabase
-      .from('users_telegram')
-      .select('*')
-      .eq('referrer_id', l1.id);
-
-    if (level2 && level2.length > 0) {
-      const l2Names = level2.map(l2 => l2.username || l2.telegram_id).join(" | ");
-      text += ` → 🟡 ${l2Names}`; // رمز للمستوى الثاني
-
-      // المستوى الثالث
-      for (const l2 of level2) {
-        const { data: level3 } = await supabase
-          .from('users_telegram')
-          .select('*')
-          .eq('referrer_id', l2.id);
-        if (level3 && level3.length > 0) {
-          const l3Names = level3.map(l3 => l3.username || l3.telegram_id).join(" | ");
-          text += `\n    → 🔵 ${l2.username || l2.telegram_id} → ${l3Names}`; // رمز للمستوى الثالث
-        }
-      }
-    }
-    text += `\n`; // فصل كل مستوى أول بسطر جديد
-  }
-
-  bot.sendMessage(chatId, text);
+  bot.sendMessage(chatId, "📊 إحالاتك (اضغط على أي اسم لرؤية رابط الإحالة):", {
+    reply_markup: { inline_keyboard: buttons }
+  });
 });
 
+// التعامل مع الضغط على الأزرار
+bot.on('callback_query', async (callbackQuery) => {
+  const msg = callbackQuery.message;
+  const data = callbackQuery.data;
+
+  console.log("Callback data:", data); // تتبع الحدث
+
+  if (data.startsWith('referral_')) {
+    const userId = parseInt(data.split('_')[1]);
+
+    // جلب بيانات المستخدم من Supabase
+    const { data: refUser, error } = await supabase
+      .from('users_telegram')
+      .select('*')
+      .eq('id', userId);
+
+    if (error) return console.error(error);
+    if (!refUser || refUser.length === 0)
+      return bot.answerCallbackQuery(callbackQuery.id, { text: "❌ المستخدم غير موجود", show_alert: true });
+
+    const name = refUser[0].username || refUser[0].telegram_id;
+    const link = `https://t.me/${process.env.BOT_USERNAME}?start=ref_${refUser[0].referral_code}`;
+
+    // إرسال الرابط مباشرة للمستخدم عند الضغط
+    bot.answerCallbackQuery(callbackQuery.id, {
+      text: `${name} → رابط الإحالة:\n${link}`,
+      show_alert: true
+    });
+  }
+});
 // تشغيل السيرفر
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
-
