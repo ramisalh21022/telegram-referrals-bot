@@ -52,7 +52,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
       .from('users_telegram')
       .insert({
         telegram_id: chatId,
-        username: msg.from.username || null,
+        username: msg.from.username || msg.from.first_name || null,
         referral_code: myCode,
         referrer_id: referrerId
       })
@@ -93,10 +93,35 @@ bot.onText(/\/my_referrals/, async (msg) => {
 
   if (!referrals || referrals.length === 0) return bot.sendMessage(chatId, "📭 لا يوجد أي إحالات حتى الآن.");
 
-  let text = `📊 إحالاتك (${referrals.length}):\n\n`;
-  referrals.forEach((r, i) => {
-    text += `${i + 1}. ${r.username ? '@' + r.username : r.telegram_id}\n`;
-  });
+ let text = `📊 إحالاتك (${level1.length}):\n\n`;
+
+  for (const l1 of level1) {
+    const l1Name = l1.username || l1.telegram_id;
+    text += `🟢 ${l1Name}`; // رمز للمستوى الأول
+
+    const { data: level2 } = await supabase
+      .from('users_telegram')
+      .select('*')
+      .eq('referrer_id', l1.id);
+
+    if (level2 && level2.length > 0) {
+      const l2Names = level2.map(l2 => l2.username || l2.telegram_id).join(" | ");
+      text += ` → 🟡 ${l2Names}`; // رمز للمستوى الثاني
+
+      // المستوى الثالث
+      for (const l2 of level2) {
+        const { data: level3 } = await supabase
+          .from('users_telegram')
+          .select('*')
+          .eq('referrer_id', l2.id);
+        if (level3 && level3.length > 0) {
+          const l3Names = level3.map(l3 => l3.username || l3.telegram_id).join(" | ");
+          text += `\n    → 🔵 ${l2.username || l2.telegram_id} → ${l3Names}`; // رمز للمستوى الثالث
+        }
+      }
+    }
+    text += `\n`; // فصل كل مستوى أول بسطر جديد
+  }
 
   bot.sendMessage(chatId, text);
 });
@@ -106,3 +131,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
