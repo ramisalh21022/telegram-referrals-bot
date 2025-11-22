@@ -22,6 +22,11 @@ const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { webHook: true });
 // ضبط Webhook تلقائيًا
 async function setWebhook() {
     try {
+        if (!process.env.APP_URL || !process.env.BOT_USERNAME) {
+            console.error("❌ APP_URL أو BOT_USERNAME غير معرف في Environment Variables");
+            return;
+        }
+
         const url = `${process.env.APP_URL.replace(/\/$/, '')}/webhook/${process.env.TELEGRAM_TOKEN}`;
         await bot.setWebHook(url);
         console.log("✅ Webhook set to:", url);
@@ -44,6 +49,7 @@ app.post(`/webhook/${process.env.TELEGRAM_TOKEN}`, (req, res) => {
 
 // health check
 app.get("/", (req, res) => res.send("OK"));
+
 
 // -------------------------
 // جلسات الإدخال المؤقتة
@@ -418,3 +424,4 @@ app.listen(PORT, async () => {
     console.log("🚀 Server running on port", PORT);
     await setWebhook();
 });
+
