@@ -1,7 +1,7 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
-const bodyParser = require('body-parser'); \
+const bodyParser = require('body-parser'); 
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -490,3 +490,4 @@ app.listen(PORT, async () => {
 console.log(`🚀 Server running on port ${ PORT } `);
 await setWebhook();
 });
+
