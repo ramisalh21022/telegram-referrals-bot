@@ -307,10 +307,10 @@ bot.on("callback_query", async (cq) => {
         if (data.startsWith("job_title_")) {
             if (session) {
                 session.data.job_title = data.replace("job_title_", "");
-                session.step = 11;
-                return bot.sendMessage(chatId, "اختر المسمى الوظيفي:", {
+                session.step = 10;
+                return bot.sendMessage(chatId, "اختر المؤهل العلمي:", {
                     reply_markup: {
-                        inline_keyboard: JOB_POSITIONS.map(p => [{ text: p, callback_data: `job_position_${p}` }])
+                        inline_keyboard: JOB_TITLES.map(p => [{ text: p, callback_data: `job_title_${p}` }])
                     }
                 });
             }
@@ -320,6 +320,11 @@ bot.on("callback_query", async (cq) => {
         if (data.startsWith("job_position_")) {
             if (session) {
                 session.data.job_position = data.replace("job_position_", "");
+                session.step = 11;
+                return bot.sendMessage(chatId, "اختر المسمى الوظيفي:", {
+                    reply_markup: {
+                        inline_keyboard: JOB_POSITIONS.map(p => [{ text: p, callback_data: `job_position_${p}` }])
+                    }
 
                 // حفظ البيانات  
                 const payload = { ...session.data };
