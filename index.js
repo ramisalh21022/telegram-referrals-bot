@@ -133,75 +133,42 @@ bot.onText(/\/menu/, (msg) => {
 // -------------------------
 // callback_query
 // -------------------------
-bot.on("callback_query", async (cq) => {
-    const data = cq.data;
-    const chatId = cq.message.chat.id;
-    let session = userStages[chatId];
+bot.on("message", async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+    if (!text || text.startsWith("/")) return;
+
+    const session = userStages[chatId];
+    if (!session) return;
 
     try {
-        if (data === "add_data" || data === "edit_data") {
-            let mode = data === "add_data" ? "add" : "edit";
-            session = { mode, step: 1, data: {} };
-            if (mode === "edit") {
-                const { data: u } = await supabase.from("users_telegram").select("*").eq("telegram_id", chatId).single();
-                session.original = u;
-            }
-            userStages[chatId] = session;
-            return bot.sendMessage(chatId, "أدخل الاسم الثلاثي:");
-        }
-
-        if (data === "show_data") {
-            const { data: u } = await supabase.from("users_telegram").select("*").eq("telegram_id", chatId).single();
-            bot.sendMessage(chatId, u ? formatUserData(u) : "❌ لا توجد بيانات.");
-            return bot.answerCallbackQuery(cq.id);
-        }
-
-        if (data === "delete_data") {
-            await supabase.from("users_telegram").update({
-                full_name: null, father_name: null, mother_name: null,
-                birth_place: null, birth_date: null,
-                registration_place: null, registration_number: null,
-                record_number: null, national_id: null,
-                job_title: null, job_position: null
-            }).eq("telegram_id", chatId);
-            bot.sendMessage(chatId, "🗑 تم حذف بياناتك بنجاح.");
-            return bot.answerCallbackQuery(cq.id);
-        }
-
-        if (data === "my_referrals") {
-            const { data: u } = await supabase.from("users_telegram").select("*").eq("telegram_id", chatId).single();
-            if (!u) return bot.answerCallbackQuery(cq.id, { text: "❌ لا يوجد حساب", show_alert: true });
-            const { data: refs } = await supabase.from("users_telegram").select("*").eq("referrer_id", u.id);
-            if (!refs || refs.length === 0) { bot.sendMessage(chatId, "📭 لا يوجد إحالات."); return bot.answerCallbackQuery(cq.id); }
-            const buttons = refs.map(r => ([{ text: r.username || r.telegram_id, callback_data: `referral_${r.id}` }]));
-            bot.sendMessage(chatId, "📊 إحالاتك:", { reply_markup: { inline_keyboard: buttons } });
-            return bot.answerCallbackQuery(cq.id);
-        }
-
-        // خطوات اختيار المؤهل العلمي والمسمى الوظيفي
-        if (session) {
-            if (data.startsWith("job_title_")) {
-                session.data.job_title = data.replace("job_title_", "");
-                session.step = 11;
-                bot.sendMessage(chatId, "اختر المسمى الوظيفي:", {
-                    reply_markup: { inline_keyboard: JOB_POSITIONS.map(p => [{ text: p, callback_data: `job_position_${p}` }]) }
+        switch (session.step) {
+            case 1: session.data.full_name = text; session.step = 2; bot.sendMessage(chatId, "اسم الأب:"); break;
+            case 2: session.data.father_name = text; session.step = 3; bot.sendMessage(chatId, "اسم الأم:"); break;
+            case 3: session.data.mother_name = text; session.step = 4; bot.sendMessage(chatId, "مكان الولادة:"); break;
+            case 4: session.data.birth_place = text; session.step = 5; bot.sendMessage(chatId, "تاريخ الولادة (YYYY-MM-DD):"); break;
+            case 5:
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) { bot.sendMessage(chatId, "❗ أدخل تاريخ بصيغة YYYY-MM-DD"); break; }
+                session.data.birth_date = text; session.step = 6; bot.sendMessage(chatId, "محل القيد:"); break;
+            case 6: session.data.registration_place = text; session.step = 7; bot.sendMessage(chatId, "رقم الخانة:"); break;
+            case 7: session.data.record_number = text; session.step = 8; bot.sendMessage(chatId, "رقم الكاش:"); break;
+            case 8: session.data.registration_number = text; session.step = 9; bot.sendMessage(chatId, "الرقم الوطني:"); break;
+            case 9:
+                session.data.national_id = text;
+                session.step = 10;
+                // هنا فقط أرسل أزرار المؤهل العلمي عبر callback_query
+                bot.sendMessage(chatId, "اختر المؤهل العلمي:", {
+                    reply_markup: {
+                        inline_keyboard: JOB_TITLES.map(t => [{ text: t, callback_data: `job_title_${t}` }])
+                    }
                 });
-                return bot.answerCallbackQuery(cq.id);
-            }
-            if (data.startsWith("job_position_")) {
-                session.data.job_position = data.replace("job_position_", "");
-                await supabase.from("users_telegram").update(session.data).eq("telegram_id", chatId);
-                delete userStages[chatId];
-                bot.sendMessage(chatId, "✅ تم حفظ البيانات!");
-                return bot.answerCallbackQuery(cq.id);
-            }
+                break;
+            default: delete userStages[chatId]; bot.sendMessage(chatId, "انتهت الجلسة. استخدم /menu مجددًا."); break;
         }
-
-        bot.answerCallbackQuery(cq.id);
-
     } catch (err) {
-        console.error("callback_query error:", err);
-        bot.answerCallbackQuery(cq.id, { text: "خطأ", show_alert: true });
+        console.error(err);
+        delete userStages[chatId];
+        bot.sendMessage(chatId, "حدث خطأ.");
     }
 });
 
@@ -258,5 +225,6 @@ app.listen(PORT, async () => {
     console.log("🚀 Server running on port", PORT);
     await setWebhook();
 });
+
 
 
