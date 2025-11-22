@@ -44,29 +44,7 @@ app.post(`/webhook/${process.env.TELEGRAM_TOKEN}`, (req, res) => {
 // Health check
 app.get('/', (req, res) => res.send('OK'));
 
-// -------------------------
-// جدول متوقع في Supabase (تأكد منه قبل التشغيل)
-// -------------------------
-/*
-CREATE TABLE users_telegram (
-id bigserial PRIMARY KEY,
-telegram_id bigint UNIQUE,
-username text,
-referral_code text,
-referrer_id bigint REFERENCES users_telegram(id),
-full_name text,
-father_name text,
-mother_name text,
-birth_place text,
-birth_date date,
-registration_place text,
-registration_number text,
-record_number text,
-national_id text,
-job_title text,
-job_position text
-);
-*/
+
 
 // -------------------------
 // حالات المستخدم المؤقتة (in-memory)
@@ -105,13 +83,13 @@ async function ensureUserRow(telegramId, username = null) {
             .select()
             .single();
 
-        ```
+      
 if (insertError) {
   console.error('Supabase insert error:', insertError);
   return null;
 }
 return newUser;
-```
+
 
     } else {
         return existing[0];
@@ -146,28 +124,7 @@ try {
     let user = await ensureUserRow(chatId, msg.from.username || msg.from.first_name || null);
     if (!user) return bot.sendMessage(chatId, 'حدث خطأ داخلي. حاول لاحقًا.');
 
-    ```
-// لو جاء رابط إحالة وحللناه
-if (referralParam && referralParam.startsWith('ref_')) {
-  const code = referralParam.split('_')[1];
-  // جلب صاحب الكود
-  const { data: refUser, error: refError } = await supabase
-    .from('users_telegram')
-    .select('*')
-    .eq('referral_code', code);
-
-  if (refError) console.error(refError);
-
-  if (refUser && refUser.length > 0) {
-    const referrerId = refUser[0].id;
-    // حدث حقل referrer_id إذا لم يكن مضبوطًا بالفعل
-    if (!user.referrer_id && referrerId !== user.id) {
-      const { error: updErr } = await supabase
-        .from('users_telegram')
-        .update({ referrer_id: referrerId })
-        .eq('telegram_id', chatId);
-      if (updErr) console.error('Failed to set referrer_id:', updErr);
-    }
+   
   }
 }
 
@@ -178,8 +135,7 @@ const link = `https://t.me/${process.env.BOT_USERNAME}?start=ref_${user.referral
         `رابط الإحالة الخاص بك:\n${link}\n\n` +
         `استعمل /menu للوصول لنموذج البيانات.`
     );
-    ```
-
+   
 } catch (err) {
 console.error('Start handler error:', err);
 bot.sendMessage(chatId, 'حدث خطأ. حاول لاحقًا.');
@@ -219,7 +175,7 @@ await bot.sendMessage(chatId, 'أدخل الاسم الثلاثي:');
 return bot.answerCallbackQuery(callbackQuery.id);
 }
 
-```
+
     if (data === 'edit_data') {
         // جلب البيانات الحالية أولًا
         const { data: u, error } = await supabase
@@ -338,7 +294,7 @@ return bot.answerCallbackQuery(callbackQuery.id);
 
     // أي حالة أخرى
     return bot.answerCallbackQuery(callbackQuery.id);
-    ```
+   
 
 } catch (err) {
 console.error('callback_query error:', err);
@@ -374,7 +330,7 @@ try {
 // 11: job_position
 const step = session.step;
 
-```
+
     switch (step) {
         case 1:
             session.data.full_name = text;
@@ -473,7 +429,7 @@ const step = session.step;
             delete userStages[chatId];
             return bot.sendMessage(chatId, 'انتهت الجلسة أو حدث خطأ. استخدم /menu للبدء مجدداً.');
     }
-    ```
+    
 
 } catch (err) {
 console.error('message handling error:', err);
@@ -490,4 +446,5 @@ app.listen(PORT, async () => {
 console.log(`🚀 Server running on port ${ PORT } `);
 await setWebhook();
 });
+
 
