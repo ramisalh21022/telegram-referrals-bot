@@ -229,11 +229,17 @@ bot.on("message", async (msg) => {
             case 7: session.data.record_number = text; session.step = 8; bot.sendMessage(chatId, "رقم الكاش:"); break;
             case 8: session.data.registration_number = text; session.step = 9; bot.sendMessage(chatId, "الرقم الوطني:"); break;
             case 9:
-                session.data.national_id = text;
-                session.step = 10;
-                bot.sendMessage(chatId, "المؤهل العلمي:", {
-                    reply_markup: { inline_keyboard: JOB_TITLES.map(t => [{ text: t, callback_data: `job_title_${t}` }]) }
-                });
+     session.data.national_id = text;
+     session.step = 10;
+     bot.sendMessage(chatId, "المؤهل العلمي:", {
+         reply_markup: { inline_keyboard: JOB_TITLES.map(t => [{ text: t, callback_data: `job_title_${t}` }]) }
+     });
+ case 10:
+     session.data.national_id = text;
+     session.step = 11;
+     bot.sendMessage(chatId, "المسمى الوظيفي:", {
+         reply_markup: { inline_keyboard: JOB_POSITIONS.map(t => [{ text: t, callback_data: `job_position_${t}` }]) }
+     }); 
                 break;
             default: delete userStages[chatId]; bot.sendMessage(chatId, "انتهت الجلسة. استخدم /menu مجددًا."); break;
         }
@@ -252,4 +258,5 @@ app.listen(PORT, async () => {
     console.log("🚀 Server running on port", PORT);
     await setWebhook();
 });
+
 
